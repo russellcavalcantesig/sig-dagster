@@ -1,20 +1,24 @@
-from fastapi import FastAPI
-import aio_pika
+import uvicorn
 import asyncio
 from contextlib import asynccontextmanager
+from fastapi import FastAPI
+import pika
+import aio_pika
+from dagster import DagsterInstance
+from dagster._core.workspace.context import WorkspaceProcessContext
+from dagster._core.workspace.load import load_workspace_process_context_from_yaml_paths
+import subprocess
 from app.dagster_job import scheduled_job
 
 # Função para enviar job para a fila RabbitMQ
 async def send_to_rabbitmq(job_name: str):
-    connection = await aio_pika.connect_robust("amqp://guest:guest@localhost/")
-    async with connection:
-        channel = await connection.channel()
-        queue = await channel.declare_queue("dagster_jobs", durable=True)
-        await channel.default_exchange.publish(
-            aio_pika.Message(body=job_name.encode()),
-            routing_key=queue.name,
-        )
-        print(f"Job {job_name} enviado para RabbitMQ")
+    connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+    channel = connection.channel()
+    channel.queue_declare(queue='send_log_humanized')
+    body = 'Mensagem padrao imst group!'
+    channel.basic_publish(exchange='', routing_key='send_log_humanized', body=body)
+    print(f" [x] Enviado {body}, 'RabbitMQ!'")
+    connection.close()
 
 # Worker para processar jobs no RabbitMQ
 async def process_job(message: aio_pika.IncomingMessage):
@@ -32,29 +36,40 @@ async def start_worker():
         queue = await channel.declare_queue("dagster_jobs", durable=True)
         await queue.consume(process_job)
         print("Worker RabbitMQ pronto para processar jobs...")
-        await asyncio.Future()  # Mantém o worker rodando
+        await asyncio.Future()
+
+# Função para iniciar o servidor Dagster
+def start_dagster_server():
+    # Inicia o servidor Dagster em um processo separado
+    process = subprocess.Popen(["dagster", "dev", "-h", "0.0.0.0", "-p", "8200"])
+    print("Servidor Dagster iniciado na porta 3000")
+    return process
 
 # Contexto de lifespan para controlar a inicialização e encerramento
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Iniciando o servidor FastAPI e o worker RabbitMQ...")
-    worker_task = asyncio.create_task(start_worker())  # Inicia o worker paralelo
-    yield  # Permite que a aplicação inicie durante o lifespan
-    worker_task.cancel()  # Cancela o worker quando a aplicação for encerrada
-    print("Encerrando o worker RabbitMQ...")
+    print("Iniciando o servidor FastAPI, worker RabbitMQ e servidor Dagster...")
+    worker_task = asyncio.create_task(start_worker())
+    dagster_process = start_dagster_server()
+    yield
+    worker_task.cancel()
+    dagster_process.terminate()
+    print("Encerrando o worker RabbitMQ e o servidor Dagster...")
 
 # Definindo a aplicação FastAPI com o lifespan
 app = FastAPI(lifespan=lifespan)
 
 # Rota para disparar o job manualmente
-@app.post("/run-job/")
+@app.post("/send-to-queue/")
 async def run_job():
-    # Aqui enfileiramos o job no RabbitMQ
     await send_to_rabbitmq("scheduled_job")
     return {"message": "Job enfileirado para execução"}
 
 # Opcional: Função para rodar o job diretamente pelo FastAPI
-@app.get("/run-job-direct/")
+@app.get("/run-job/")
 async def run_job_direct():
     result = scheduled_job.execute_in_process()
     return {"message": result.success}
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)

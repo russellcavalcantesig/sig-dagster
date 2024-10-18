@@ -8,3 +8,6 @@ def hello_op():
 @job
 def scheduled_job():
     hello_op()
+
+
+jobs = []

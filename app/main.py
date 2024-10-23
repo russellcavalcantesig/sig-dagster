@@ -41,7 +41,7 @@ async def start_worker():
 # Função para iniciar o servidor Dagster
 def start_dagster_server():
     # Inicia o servidor Dagster em um processo separado
-    process = subprocess.Popen(["dagster", "dev", "-h", "0.0.0.0", "-p", "8200"])
+    process = subprocess.Popen(["dagster", "dev", "-h", "0.0.0.0", "-p", "8100"])
     print("Servidor Dagster iniciado na porta 3000")
     return process
 

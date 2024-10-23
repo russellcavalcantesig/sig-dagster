@@ -1,6 +1,0 @@
-[32m2024-10-18 00:12:46 -0300[0m - dagster - [34mDEBUG[0m - scheduled_job - d73611e2-2192-4d4d-9dab-f1752f08c5f7 - 329691 - LOGS_CAPTURED - Started capturing logs in process (pid: 329691).
-[32m2024-10-18 00:12:46 -0300[0m - dagster - [34mDEBUG[0m - scheduled_job - d73611e2-2192-4d4d-9dab-f1752f08c5f7 - 329691 - hello_op - STEP_START - Started execution of step "hello_op".
-[32m2024-10-18 00:12:46 -0300[0m - dagster - [34mDEBUG[0m - scheduled_job - d73611e2-2192-4d4d-9dab-f1752f08c5f7 - 329691 - hello_op - STEP_OUTPUT - Yielded output "result" of type "Any". (Type check passed).
-[32m2024-10-18 00:12:46 -0300[0m - dagster - [34mDEBUG[0m - scheduled_job - d73611e2-2192-4d4d-9dab-f1752f08c5f7 - hello_op - Writing file at: /home/desenvolvimento/Desktop/projects/sig-dagster/tmpf2rqgv7d/storage/d73611e2-2192-4d4d-9dab-f1752f08c5f7/hello_op/result using PickledObjectFilesystemIOManager...
-[32m2024-10-18 00:12:46 -0300[0m - dagster - [34mDEBUG[0m - scheduled_job - d73611e2-2192-4d4d-9dab-f1752f08c5f7 - 329691 - hello_op - HANDLED_OUTPUT - Handled output "result" using IO manager "io_manager"
-[32m2024-10-18 00:12:46 -0300[0m - dagster - [34mDEBUG[0m - scheduled_job - d73611e2-2192-4d4d-9dab-f1752f08c5f7 - 329691 - hello_op - STEP_SUCCESS - Finished execution of step "hello_op" in 19ms.

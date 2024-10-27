@@ -41,9 +41,11 @@ def load_to_audit_state(context, documents):
 
 # Define the job
 @job(resource_defs={'mongodb': mongodb_resource})
-def mongo_normalize_job():
+def mongo_audit_job():
     documents = extract_from_source()
     transformed_data = transform_data(documents)
     load_to_audit_state(transformed_data)
 
-jobs = [mongo_normalize_job]
+# If you want to execute the job directly (for testing)
+if __name__ == "__main__":
+    result = mongo_audit_job.execute_in_process()

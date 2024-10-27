@@ -8,7 +8,7 @@ from dagster import DagsterInstance
 from dagster._core.workspace.context import WorkspaceProcessContext
 from dagster._core.workspace.load import load_workspace_process_context_from_yaml_paths
 import subprocess
-from app.dagster_job import scheduled_job
+from app.dagster_job import mongo_normalize_job
 
 # Função para enviar job para a fila RabbitMQ
 async def send_to_rabbitmq(job_name: str):
@@ -24,9 +24,9 @@ async def send_to_rabbitmq(job_name: str):
 async def process_job(message: aio_pika.IncomingMessage):
     async with message.process():
         job_name = message.body.decode()
-        if job_name == "scheduled_job":
+        if job_name == "mongo_audit_job":
             print("Executando o job agendado...")
-            scheduled_job.execute_in_process()
+            mongo_audit_job.execute_in_process()
 
 # Função para iniciar o worker RabbitMQ
 async def start_worker():
@@ -62,13 +62,13 @@ app = FastAPI(lifespan=lifespan)
 # Rota para disparar o job manualmente
 @app.post("/send-to-queue/")
 async def run_job():
-    await send_to_rabbitmq("scheduled_job")
+    await send_to_rabbitmq("mongo_audit_job")
     return {"message": "Job enfileirado para execução"}
 
 # Opcional: Função para rodar o job diretamente pelo FastAPI
 @app.get("/run-job/")
 async def run_job_direct():
-    result = scheduled_job.execute_in_process()
+    result = mongo_audit_job.execute_in_process()
     return {"message": result.success}
 
 if __name__ == "__main__":

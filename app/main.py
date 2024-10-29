@@ -1,16 +1,20 @@
+# app/main.py
+
 import uvicorn
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import pika
 import aio_pika
 from dagster import DagsterInstance
-from dagster._core.workspace.context import WorkspaceProcessContext
-from dagster._core.workspace.load import load_workspace_process_context_from_yaml_paths
 import subprocess
-from app.dagster_job import mongo_normalize_job
+from .jobs.normalize_job import mongo_audit_job
+from .config.dagster_config import setup_dagster_config
 
-# Função para enviar job para a fila RabbitMQ
+# Configurar Dagster antes de iniciar a aplicação
+DAGSTER_HOME = setup_dagster_config()
+
 async def send_to_rabbitmq(job_name: str):
     connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
     channel = connection.channel()
@@ -20,15 +24,14 @@ async def send_to_rabbitmq(job_name: str):
     print(f" [x] Enviado {body}, 'RabbitMQ!'")
     connection.close()
 
-# Worker para processar jobs no RabbitMQ
 async def process_job(message: aio_pika.IncomingMessage):
     async with message.process():
         job_name = message.body.decode()
-        if job_name == "mongo_audit_job":
+        if job_name == "mongo_normalize_job":
             print("Executando o job agendado...")
-            mongo_audit_job.execute_in_process()
+            instance = DagsterInstance.get()
+            mongo_audit_job.execute_in_process(instance=instance)
 
-# Função para iniciar o worker RabbitMQ
 async def start_worker():
     connection = await aio_pika.connect_robust("amqp://guest:guest@localhost/")
     async with connection:
@@ -38,14 +41,28 @@ async def start_worker():
         print("Worker RabbitMQ pronto para processar jobs...")
         await asyncio.Future()
 
-# Função para iniciar o servidor Dagster
 def start_dagster_server():
-    # Inicia o servidor Dagster em um processo separado
-    process = subprocess.Popen(["dagster", "dev", "-h", "0.0.0.0", "-p", "8100"])
-    print("Servidor Dagster iniciado na porta 3000")
+    # Simplificando o comando do Dagster
+    cmd = [
+        "dagster",
+        "dev",
+        "-h", "0.0.0.0",
+        "-p", "8100",
+        # "-m", "app.jobs.normalize_job"  # Usando o módulo Python diretamente
+    ]
+    
+    env = os.environ.copy()
+    env["DAGSTER_HOME"] = DAGSTER_HOME
+    
+    process = subprocess.Popen(
+        cmd,
+        env=env,
+        cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # Define o diretório de trabalho
+    )
+    
+    print(f"Servidor Dagster iniciado na porta 8100 com DAGSTER_HOME={DAGSTER_HOME}")
     return process
 
-# Contexto de lifespan para controlar a inicialização e encerramento
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Iniciando o servidor FastAPI, worker RabbitMQ e servidor Dagster...")
@@ -56,19 +73,17 @@ async def lifespan(app: FastAPI):
     dagster_process.terminate()
     print("Encerrando o worker RabbitMQ e o servidor Dagster...")
 
-# Definindo a aplicação FastAPI com o lifespan
 app = FastAPI(lifespan=lifespan)
 
-# Rota para disparar o job manualmente
 @app.post("/send-to-queue/")
 async def run_job():
     await send_to_rabbitmq("mongo_audit_job")
     return {"message": "Job enfileirado para execução"}
 
-# Opcional: Função para rodar o job diretamente pelo FastAPI
 @app.get("/run-job/")
 async def run_job_direct():
-    result = mongo_audit_job.execute_in_process()
+    instance = DagsterInstance.get()
+    result = mongo_audit_job.execute_in_process(instance=instance)
     return {"message": result.success}
 
 if __name__ == "__main__":

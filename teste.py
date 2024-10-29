@@ -32,7 +32,7 @@ def load_to_audit_state(context, documents):
     db = context.resources.mongodb['admin']
     audit_collection = db['AuditState']
     
-    # Insert documents into AuditState collection
+    # Insert   documents into AuditState collection
     if documents:
         result = audit_collection.insert_many(documents)
         context.log.info(f"Inserted {len(result.inserted_ids)} documents into AuditState collection")

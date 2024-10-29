@@ -1,20 +1,15 @@
 import warnings
-
 from dagster import Definitions, ExperimentalWarning, in_process_executor
 
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
-from app.assets import assets
-from app.dagster_job import jobs
-from .resources import mongodb_resource
-from app.scheduler import schedule
+from .jobs import jobs_defs
+from .resources.resources import resource_defs
+from .scheduler.scheduler import schedules
 
 defs = Definitions(
     executor=in_process_executor,
-    assets=assets,
-    resources={
-        "mongodb": mongodb_resource
-    },
-    jobs=[*jobs],
-    schedules=[schedule],
+    resources=resource_defs,
+    jobs=jobs_defs,
+    schedules=schedules,
 )

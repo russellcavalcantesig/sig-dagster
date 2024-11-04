@@ -9,7 +9,8 @@ import pika
 import aio_pika
 from dagster import DagsterInstance
 import subprocess
-from .jobs.normalize_job import mongo_audit_job
+from .jobs.audit.normalize_job import audit_normalize_job
+from .jobs.audit.humanize_job import humanize_job
 from .config.dagster_config import setup_dagster_config
 
 # Configurar Dagster antes de iniciar a aplicação
@@ -30,7 +31,7 @@ async def process_job(message: aio_pika.IncomingMessage):
         if job_name == "mongo_normalize_job":
             print("Executando o job agendado...")
             instance = DagsterInstance.get()
-            mongo_audit_job.execute_in_process(instance=instance)
+            audit_normalize_job.execute_in_process(instance=instance)
 
 async def start_worker():
     connection = await aio_pika.connect_robust("amqp://guest:guest@localhost/")
@@ -83,7 +84,14 @@ async def run_job():
 @app.get("/run-job/")
 async def run_job_direct():
     instance = DagsterInstance.get()
-    result = mongo_audit_job.execute_in_process(instance=instance)
+    result = audit_normalize_job.execute_in_process(instance=instance)
+    return {"message": result.success}
+
+
+@app.get("/humanize_job/")
+async def run_job_direct():
+    instance = DagsterInstance.get()
+    result = humanize_job.execute_in_process(instance=instance)
     return {"message": result.success}
 
 if __name__ == "__main__":

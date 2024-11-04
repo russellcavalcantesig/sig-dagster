@@ -20,14 +20,22 @@
 
 
 from dagster import schedule
-from ..jobs.normalize_job import mongo_audit_job
+from ..jobs.audit.normalize_job import audit_normalize_job
+from ..jobs.audit.humanize_job import humanize_job
 
 @schedule(
     cron_schedule="* * * * *",  # Executa diariamente à meia-noite
-    job=mongo_audit_job,
+    job=audit_normalize_job,
     execution_timezone="UTC",
 )
-def daily_audit_schedule(context):
+def daily_normalize_schedule(context):
+    return {}
+@schedule(
+    cron_schedule="* * * * *",  # Executa diariamente à meia-noite
+    job=humanize_job,
+    execution_timezone="UTC",
+)
+def daily_humanized_schedule(context):
     return {}
 
-schedules = [daily_audit_schedule]
+schedules = [daily_normalize_schedule, daily_humanized_schedule]

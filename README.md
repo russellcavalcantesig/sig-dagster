@@ -1,4 +1,11 @@
 # sig-dagster
 
-## Encontre a connection string do seu sistema auto-hospedado MONGO DB ##
-Se você estiver conectado à implantação do MongoDB Enterprise ou MongoDB Community auto-hospedado, execute o método db.getMongo() para retornar a cadeia de conexão.
+comandos dev:
+
+python3 -m venv .venv
+
+source .venv/bin/activate
+
+pip install -r requirements.txt
+
+uvicorn app.main:app --host 0.0.0.0 --port 8000

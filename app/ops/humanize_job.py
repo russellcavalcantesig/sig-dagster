@@ -13,6 +13,7 @@ def extract_from_normalized(context):
     context.log.info(f"Extracted {len(documents)} documents from AuditNormalized")
     return documents
 
+
 @op(required_resource_keys={'mongodb'})
 def process_documents(context, documents: List[Dict[str, Any]]):
     """Process documents and validate fields against AuditMapper."""

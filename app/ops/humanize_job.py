@@ -31,8 +31,8 @@ def process_documents(context, documents: List[Dict[str, Any]]):
             table = doc.get('table')
             
             has_inconsistency = False
-            
-            
+
+        
             
             # 2. Verify fields in AuditMapper
             for field_name, field_value in document_fields.items():
@@ -43,10 +43,13 @@ def process_documents(context, documents: List[Dict[str, Any]]):
                 }
                 
                 mapper_doc = audit_mapper.find_one(mapper_query)
-                
+
+                if not mapper_doc or mapper_doc['status'] != 3:
+                    has_inconsistency = True
+
                 # 2.1 If field not found in AuditMapper, create new record
                 if not mapper_doc:
-                    has_inconsistency = True
+
                     new_mapper_doc = {
                         'schema': schema,
                         'table': table,

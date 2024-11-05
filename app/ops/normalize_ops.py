@@ -1,7 +1,20 @@
 from dagster import op
 from typing import Dict, Any
 from copy import deepcopy
+import json
 
+import pika
+
+def send_to_event_trigger(job_name: str, body:str):
+    connection = pika.BlockingConnection(pika.ConnectionParameters('192.168.17.106'))
+    channel = connection.channel()
+    data_dict = eval(body)
+    data = json.dumps(data_dict, ensure_ascii=False)
+    
+    channel.queue_declare(queue='EventTrigger', durable=True)
+    channel.basic_publish(exchange='', routing_key='EventTrigger', body=data, )
+    print(f" [x] Enviado pelo job de ->{job_name},\n doc -> {body}, \n'RabbitMQ!'")
+    connection.close()
 
 def normalize_document(doc: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -242,7 +255,9 @@ def load_to_audit_normalized(context, documents):
                             
                     if document_differences:
                         differences['document'] = document_differences
-                        
+                        send_to_event_trigger("laod_to_audit_normalized", differences)
+                        print('vai fazer o send to event trigger !')
+                        input()
                         # Inserir novo documento com apenas as diferenças
                         audit_normalized.insert_one(differences)
                         inserts += 1
@@ -250,6 +265,8 @@ def load_to_audit_normalized(context, documents):
                             f"Inserted normalized document with differences for {doc['schema']}.{doc['table']} "
                             f"id {doc['id']}"
                         )
+                        
+                        
                     else:
                         skipped += 1
                         context.log.info(
@@ -266,9 +283,11 @@ def load_to_audit_normalized(context, documents):
                     )
                 
             except Exception as e:
+                print(e)
+                input()
                 context.log.error(f"Error processing document {doc.get('schema')}.{doc.get('table')} "
                                 f"id {doc.get('id')}: {str(e)}")
-                continue
+                # continue
         
         context.log.info(
             f"Normalization complete: {inserts} insertions, "

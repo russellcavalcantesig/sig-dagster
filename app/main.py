@@ -16,13 +16,12 @@ from .config.dagster_config import setup_dagster_config
 # Configurar Dagster antes de iniciar a aplicação
 DAGSTER_HOME = setup_dagster_config()
 
-async def send_to_rabbitmq(job_name: str):
-    connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+async def send_to_rabbitmq(job_name: str, body:str):
+    connection = pika.BlockingConnection(pika.ConnectionParameters('192.168.17.106'))
     channel = connection.channel()
-    channel.queue_declare(queue='send_log_humanized')
-    body = 'Mensagem padrao imst group!'
-    channel.basic_publish(exchange='', routing_key='send_log_humanized', body=body)
-    print(f" [x] Enviado {body}, 'RabbitMQ!'")
+    channel.queue_declare(queue='EventTrigger')
+    channel.basic_publish(exchange='', routing_key='EventTrigger', body=body)
+    print(f" [x] Enviado pelo job de ->{job_name},\n doc -> {body}, \n'RabbitMQ!'")
     connection.close()
 
 async def process_job(message: aio_pika.IncomingMessage):

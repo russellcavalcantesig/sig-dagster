@@ -1,7 +1,7 @@
 from dagster import job
 
 from ...resources.resources import resource_defs
-from ...ops.humanize_job import transform_data_humanized, extract_from_source_normalized, load_to_audit_humanized
+from ...ops.humanize_job import extract_from_normalized, process_documents, cleanup_normalized
 
 
 
@@ -9,7 +9,7 @@ from ...ops.humanize_job import transform_data_humanized, extract_from_source_no
 def humanize_job():
     # print('entrou ->>', 'dada')
 
-    documents = extract_from_source_normalized()
-    transformed_data = transform_data_humanized(documents)
-    load_to_audit_humanized(transformed_data)
+    docs = extract_from_normalized()
+    processed = process_documents(docs)
+    cleanup_normalized(processed)
 

@@ -1,123 +1,98 @@
-from dagster import op
-from typing import Dict, Any
+from dagster import op, job
+from typing import Dict, Any, List
+from datetime import datetime
 from copy import deepcopy
 
-@op
-def transform_data_humanized(documents):
-    # Você pode adicionar transformações aqui, se necessário
-    return documents
-
 @op(required_resource_keys={'mongodb'})
-def extract_from_source_normalized(context):
-    db = context.resources.mongodb['admin']
+def extract_from_normalized(context):
+    """Extract documents from AuditNormalize collection."""
+    db = context.resources.mongodb['mvp']
     collection = db['AuditNormalized']
-    
     documents = list(collection.find({}))
-    context.log.info(f"Extracted {len(documents)} documents from source collection")
-    # print(documents)
-    # input()
+    print('documents ->>>',documents)
+    context.log.info(f"Extracted {len(documents)} documents from AuditNormalized")
     return documents
 
+@op(required_resource_keys={'mongodb'})
+def process_documents(context, documents: List[Dict[str, Any]]):
+    """Process documents and validate fields against AuditMapper."""
+    db = context.resources.mongodb['mvp']
+    normalized_collection = db['AuditNormalized']
+    audit_mapper = db['AuditMapper']
+    audit_inconsistence = db['AuditInconsistence']
+    processed_docs = []
+    
+    for doc in documents:
+        try:
+            # 1. Extract fields from document
+            document_fields = doc.get('document', {})
+            schema = doc.get('schema')
+            table = doc.get('table')
+            
+            has_inconsistency = False
+            
+            
+            
+            # 2. Verify fields in AuditMapper
+            for field_name, field_value in document_fields.items():
+                mapper_query = {
+                    'schema': schema,
+                    'table': table,
+                    'field': field_name
+                }
+                
+                mapper_doc = audit_mapper.find_one(mapper_query)
+                
+                # 2.1 If field not found in AuditMapper, create new record
+                if not mapper_doc:
+                    has_inconsistency = True
+                    new_mapper_doc = {
+                        'schema': schema,
+                        'table': table,
+                        'field': field_name,
+                        'label': None,
+                        'status': 0,
+                        'type': None,
+                        'query': None,
+                        'error': 'Campo não mapeado',
+                        'createdAt': datetime.now()
+                    }
+                    audit_mapper.insert_one(new_mapper_doc)
+                    print(f'Created new mapper record for {schema}.{table}.{field_name}')
+                    # input()
+                    context.log.info(f"Created new mapper record for {schema}.{table}.{field_name}")
+                    
+                    
+            
+            # 3. If any inconsistency found, move document to AuditInconsistence
+            if has_inconsistency:
+                doc['movedAt'] = datetime.now()
+                audit_inconsistence.insert_one(doc)
+                context.log.info(f"Moved document {doc['_id']} to AuditInconsistence")
+            else:
+                processed_docs.append(doc)
 
-def get_document_differences_humanized(new_doc: Dict[str, Any], existing_doc: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Compara dois documentos e retorna um dicionário com as diferenças encontradas.
-    """
-    differences = {}
-    
-    # Campos principais que queremos sempre manter atualizados
-    main_fields = ['action', 'schema', 'table']
-    for field in main_fields:
-        if new_doc.get(field) != existing_doc.get(field):
-            differences[field] = new_doc[field]
-    
-    # Compara os campos dentro do documento
-    new_document = new_doc.get('document', {})
-    existing_document = existing_doc.get('document', {})
-    
-    if new_document != existing_document:
-        differences['document'] = new_document
-    
-    # print(differences)
-    # input()
-    
-    
-    return differences
+            # Remover documentos processados da coleção Normalize Colection
+            document_ids = [doc['_id'] for doc in documents]
+            delete_result = normalized_collection.delete_many({'_id': {'$in': document_ids}})
+            context.log.info(f"Deleted {delete_result.deleted_count} documents from AuditRaw collection")
+        except Exception as e:
+            context.log.error(f"Error processing document {doc.get('_id')}: {str(e)}")
+            continue
+            
+    return processed_docs
 
 @op(required_resource_keys={'mongodb'})
-def load_to_audit_humanized(context, documents):
-    db = context.resources.mongodb['admin']
-    normalized_collection = db['AuditNormalized']
-    humanized_collection = db['AuditHumanized']
+def cleanup_normalized(context, processed_docs: List[Dict[str, Any]]):
+    """Remove processed documents from AuditNormalize."""
+    if not processed_docs:
+        return
+        
+    db = context.resources.mongodb['mvp']
+    normalize_collection = db['AuditNormalize']
     
-    if documents:
-        updates = 0
-        inserts = 0
-        skipped = 0
-        
-        for doc in documents:
-            try:
-                # Definir a chave composta
-                # composite_key = {
-                #     'schema': doc['schema'],
-                #     'table': doc['table'],
-                #     'id': doc['id']
-                # }
-                
-                # # Busca documento existente usando a chave composta
-                # existing_doc = humanized_collection.find_one(composite_key)
-                
-                # # print('existing_doc -->>', existing_doc)
-                # # input()
-                # # Remove _id do documento a ser processado
-                # new_doc = deepcopy(doc)
-                # if '_id' in new_doc:
-                #     del new_doc['_id']
-                
-                # if existing_doc:
-                #     # Se o documento já existe, atualizamos independente da action
-                #     differences = get_document_differences_humanized(new_doc, existing_doc)
-                    
-                #     if differences:
-                #         update_result = humanized_collection.update_one(
-                #             composite_key,
-                #             {'$set': differences}
-                #         )
-                        
-                #         if update_result.modified_count > 0:
-                #             updates += 1
-                #             context.log.info(
-                #                 f"Updated document for {doc['schema']}.{doc['table']} "
-                #                 f"id {doc['id']} with changes: {differences}"
-                #             )
-                #         else:
-                #             skipped += 1
-                #             context.log.info(
-                #                 f"No changes needed for {doc['schema']}.{doc['table']} "
-                #                 f"id {doc['id']}"
-                #             )
-                # else:
-                    # Se o documento não existe, inserimos
-                    humanized_collection.insert_one(doc)
-                    inserts += 1
-                    context.log.info(
-                        f"Inserted new document for {doc['schema']}.{doc['table']} "
-                        f"id {doc['id']}"
-                    )
-                
-            except Exception as e:
-                context.log.error(f"Error processing document {doc.get('schema')}.{doc.get('table')} "
-                                f"id {doc.get('id')}: {str(e)}")
-                continue
-        
-        context.log.info(
-            f"Processing complete: {inserts} insertions, {updates} updates, "
-            f"{skipped} skipped (no changes needed)"
-        )
-        
-        # Remover documentos processados da coleção AuditRaw
-        document_ids = [doc['_id'] for doc in documents]
-        delete_result = normalized_collection.delete_many({'_id': {'$in': document_ids}})
-        context.log.info(f"Deleted {delete_result.deleted_count} documents from AuditRaw collection")
-    else:
-        context.log.info("No documents to process")
+    doc_ids = [doc['_id'] for doc in processed_docs]
+    result = normalize_collection.delete_many({'_id': {'$in': doc_ids}})
+    
+    context.log.info(f"Removed {result.deleted_count} processed documents from AuditNormalize")
+

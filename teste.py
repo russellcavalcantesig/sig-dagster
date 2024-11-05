@@ -11,7 +11,7 @@ def mongodb_resource():
 # Operation to read from source collection
 @op(required_resource_keys={'mongodb'})
 def extract_from_source(context):
-    db = context.resources.mongodb['admin']
+    db = context.resources.mongodb['mvp']
     collection = db['AuditRaw']
     
     # Get all documents from source collection
@@ -29,7 +29,7 @@ def transform_data(documents):
 # Operation to load data into AuditState collection
 @op(required_resource_keys={'mongodb'})
 def load_to_audit_state(context, documents):
-    db = context.resources.mongodb['admin']
+    db = context.resources.mongodb['mvp']
     audit_collection = db['AuditState']
     
     # Insert   documents into AuditState collection

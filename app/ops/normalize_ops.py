@@ -84,7 +84,7 @@ def get_document_differences_normalize(new_doc: Dict[str, Any], existing_doc: Di
 
 @op(required_resource_keys={'mongodb'})
 def extract_from_source(context):
-    db = context.resources.mongodb['admin']
+    db = context.resources.mongodb['mvp']
     collection = db['AuditRaw']
     
     documents = list(collection.find({}))
@@ -100,7 +100,7 @@ def transform_data_state(documents):
 
 @op(required_resource_keys={'mongodb'})
 def load_to_audit_state(context, documents):
-    db = context.resources.mongodb['admin']
+    db = context.resources.mongodb['mvp']
     audit_collection = db['AuditState']
     raw_collection = db['AuditRaw']
     
@@ -189,7 +189,7 @@ def load_to_audit_state(context, documents):
         
 @op(required_resource_keys={'mongodb'})
 def load_to_audit_normalized(context, documents):
-    db = context.resources.mongodb['admin']
+    db = context.resources.mongodb['mvp']
     audit_normalized = db['AuditNormalized']
     audit_state = db['AuditState']
     raw_collection = db['AuditRaw']
@@ -237,7 +237,9 @@ def load_to_audit_normalized(context, documents):
                         if key in existing_document:
                             if value != existing_document[key]:
                                 document_differences[key] = value
-                    
+                        if key not in existing_document:
+                            document_differences[key] = value
+                            
                     if document_differences:
                         differences['document'] = document_differences
                         
